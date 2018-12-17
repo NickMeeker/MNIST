@@ -61,9 +61,9 @@ public class Network {
 		return output;
 	}
 	
-	public SimpleMatrix feedforward(SimpleMatrix input) {
+	public SimpleMatrix feedforward(Data input, boolean training) {
 		// Step 1: Calculate hidden X:
-		SimpleMatrix hx = weights.mult(input);
+		SimpleMatrix hx = weights.mult(input.getInputs());
 		
 		// Step 2: Calculate sigmoids
 		SimpleMatrix hy = new SimpleMatrix(Driver.HIDDEN, 1);
@@ -79,9 +79,24 @@ public class Network {
 		for(int j = 0; j < oy.numRows(); j++) {
 			oy.set(j, 0, sigmoid(ox.get(j, 0)));
 		}
-		return oy;
+		if(!training)
+			return oy;
+		
+		backpropogate(input, oy, hy);
+		return null;
 	}
 	
+	public void backpropogate(Data input, SimpleMatrix oy, SimpleMatrix hy) {
+		// Step 5: Evaluate:
+		SimpleMatrix E = input.getTarget().minus(oy);
+
+		// Step 6: Calculate hidden layer errors and adjust:
+		SimpleMatrix hE = outputWeights.transpose().mult(E);
+		SimpleMatrix dho = calcDelta(E, oy, hy);
+		SimpleMatrix dih = calcDelta(hE, hy, input.getInputs());
+		outputWeights = outputWeights.plus(dho);
+		weights = weights.plus(dih);
+	}
 	public int determineNum(SimpleMatrix oy) {
 		int maxIndex = 0;
 		double max = -100000000;
@@ -101,34 +116,7 @@ public class Network {
 		while(trainCounter < Driver.EPOCHS) {
 			System.out.println("Epoch: " + (trainCounter+1));
 			for(int i = 0; i < Driver.NUMPICTURES; i++) {
-				// Step 1: Calculate hidden X:
-				SimpleMatrix hx = weights.mult(inputs.get(i).getInputs());
-				
-				// Step 2: Calculate sigmoids
-				SimpleMatrix hy = new SimpleMatrix(Driver.HIDDEN, 1);
-				for(int j = 0; j < hy.numRows(); j++) {
-					hy.set(j, 0, sigmoid(hx.get(j, 0)));
-				}
-
-				
-				// Step 3: Calculate output x:
-				SimpleMatrix ox = outputWeights.mult(hy);
-				
-				// Step 4: Calculate output sigmoids:
-				SimpleMatrix oy = new SimpleMatrix(Driver.OUTPUTS, 1);
-				for(int j = 0; j < oy.numRows(); j++) {
-					oy.set(j, 0, sigmoid(ox.get(j, 0)));
-				}
-				
-				// Step 5: Evaluate:
-				SimpleMatrix E = inputs.get(i).getTarget().minus(oy);
-
-				// Step 6: Calculate hidden layer errors and adjust:
-				SimpleMatrix hE = outputWeights.transpose().mult(E);
-				SimpleMatrix dho = calcDelta(E, oy, hy);
-				SimpleMatrix dih = calcDelta(hE, hy, inputs.get(i).getInputs());
-				outputWeights = outputWeights.plus(dho);
-				weights = weights.plus(dih);
+				feedforward(inputs.get(i), true);
 			}
 			test();
 			trainCounter++;
@@ -140,7 +128,7 @@ public class Network {
 	public void test() {
 		int numCorrect = 0;
 		for(Data data : testData) {
-			SimpleMatrix oy = feedforward(data.getInputs());
+			SimpleMatrix oy = feedforward(data, false);
 			int guess = determineNum(oy);
 			if(guess == data.getLabel()) {
 				numCorrect++;
