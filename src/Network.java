@@ -1,28 +1,28 @@
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 
+import org.ejml.data.Matrix;
 import org.ejml.simple.SimpleMatrix;
 
 public class Network {
 	ArrayList<Data> inputs;
 	ArrayList<Data> testData;
-	SimpleMatrix weights;
+	SimpleMatrix hiddenWeights;
 	SimpleMatrix outputs;
 	SimpleMatrix outputWeights;
 
 	public Network(ArrayList<Data> inputs, ArrayList<Data> testData) {
 		this.inputs = inputs;
 		this.testData = testData;
-		this.weights = new SimpleMatrix(Driver.HIDDEN, Driver.INPUTS);
+		this.hiddenWeights = new SimpleMatrix(Driver.HIDDEN, Driver.INPUTS);
 		this.outputWeights = new SimpleMatrix(Driver.OUTPUTS, Driver.HIDDEN);
 		this.outputs = new SimpleMatrix(Driver.OUTPUTS, 1);
 		
 		// need to initialize weights to random values 0-1
 		Random rand = new Random();
-		for(int i = 0; i < this.weights.numRows(); i++) {
-			for(int j = 0; j < this.weights.numCols(); j++) {
-				this.weights.set(i, j, rand.nextGaussian()*-0.5);
+		for(int i = 0; i < this.hiddenWeights.numRows(); i++) {
+			for(int j = 0; j < this.hiddenWeights.numCols(); j++) {
+				this.hiddenWeights.set(i, j, rand.nextGaussian()*-0.5);
 			}
 		}
 		
@@ -32,19 +32,17 @@ public class Network {
 			}
 		}
 	}
-	
+
+	public Network(ArrayList<Data> inputs, ArrayList<Data> testData, SimpleMatrix hiddenWeights, SimpleMatrix outputWeights) {
+		this.inputs = inputs;
+		this.testData = testData;
+		this.outputs = new SimpleMatrix(Driver.OUTPUTS, 1);
+		this.hiddenWeights = hiddenWeights;
+		this.outputWeights = outputWeights;
+	}
 	
 	public double sigmoid(double x) {
 		return 1.0 / (double)(1 + Math.pow(Math.E, -x));
-	}
-	
-	public void printMatrix(SimpleMatrix m) {
-		for(int i = 0; i < m.numRows(); i++) {
-			for(int j = 0; j < m.numCols(); j++) {
-				System.out.print(m.get(i, j) + " ");
-			}
-			System.out.println();
-		}
 	}
 	
 	public SimpleMatrix calcDelta(SimpleMatrix E, SimpleMatrix O, SimpleMatrix hy) {
@@ -63,7 +61,7 @@ public class Network {
 	
 	public SimpleMatrix feedforward(Data input, boolean training) {
 		// Step 1: Calculate hidden X:
-		SimpleMatrix hx = weights.mult(input.getInputs());
+		SimpleMatrix hx = hiddenWeights.mult(input.getInputs());
 		
 		// Step 2: Calculate sigmoids
 		SimpleMatrix hy = new SimpleMatrix(Driver.HIDDEN, 1);
@@ -95,7 +93,7 @@ public class Network {
 		SimpleMatrix dho = calcDelta(E, oy, hy);
 		SimpleMatrix dih = calcDelta(hE, hy, input.getInputs());
 		outputWeights = outputWeights.plus(dho);
-		weights = weights.plus(dih);
+		hiddenWeights = hiddenWeights.plus(dih);
 	}
 	public int determineNum(SimpleMatrix oy) {
 		int maxIndex = 0;
@@ -122,7 +120,40 @@ public class Network {
 			trainCounter++;
 		}
 		
-		
+		StringBuilder hiddenWeightsStr = new StringBuilder("[");
+		StringBuilder outputWeightsStr = new StringBuilder("[");
+
+		for(int i = 0; i < hiddenWeights.numRows(); i++) {
+			for(int j = 0; j < hiddenWeights.numCols(); j++) {
+				hiddenWeightsStr.append(hiddenWeights.get(i, j) + ",");
+				if(j == this.hiddenWeights.numCols() - 1)
+				  hiddenWeightsStr.deleteCharAt(hiddenWeightsStr.length() - 1);
+			}
+			hiddenWeightsStr.append("],");
+			if(i == this.hiddenWeights.numRows() - 1)
+				hiddenWeightsStr.deleteCharAt(hiddenWeightsStr.length() - 1);
+		}
+		hiddenWeightsStr.append("]");
+
+		for(int i = 0; i < outputWeights.numRows(); i++) {
+			for(int j = 0; j < outputWeights.numCols(); j++) {
+				outputWeightsStr.append(outputWeights.get(i, j) + ",");
+				if(j == this.outputWeights.numCols() - 1)
+					outputWeightsStr.deleteCharAt(outputWeightsStr.length() - 1);
+			}
+			outputWeightsStr.append("],");
+			if(i == this.outputWeights.numRows() - 1)
+				outputWeightsStr.deleteCharAt(outputWeightsStr.length() - 1);
+		}
+		outputWeightsStr.append("]");
+
+		FileHandler.writeStringToFile(hiddenWeightsStr.toString(), "hiddenweights.txt");
+		FileHandler.writeStringToFile(outputWeightsStr.toString(), "outputweights.txt");
+
+		Double[][] hiddenWeightsArray = MatrixUtils.matrixToDouble2dArray(hiddenWeights);
+		Double[][] outputWeightsArray = MatrixUtils.matrixToDouble2dArray(outputWeights);
+
+		HttpUtils.push(hiddenWeightsArray, outputWeightsArray);
 	}
 	
 	public void test() {

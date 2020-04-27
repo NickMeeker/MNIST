@@ -1,12 +1,16 @@
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 import org.ejml.data.Matrix;
 import org.ejml.simple.SimpleMatrix;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import sun.misc.IOUtils;
 
 
 public class FileHandler {
@@ -18,7 +22,7 @@ public class FileHandler {
 	private ArrayList<Data> testData;
 	
 	public FileHandler() {
-		this.fileName = "mnist_train.csv";
+		this.fileName = "data1.csv";
 		this.file = new File(fileName);
 		this.height = 28;
 		this.width = 28;
@@ -74,4 +78,68 @@ public class FileHandler {
 	public ArrayList<Data> getTestData(){
 		return this.testData;
 	}
+
+	public static void writeStringToFile(String input, String filename) {
+		try {
+			BufferedWriter bw = new BufferedWriter(new FileWriter((filename)));
+			bw.write(input);
+			bw.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static Map<String, String> parseConfigFile(String filepath) {
+		Map<String, String> config = new HashMap<>();
+		try (BufferedReader br = new BufferedReader(new FileReader(new File(filepath)))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				String[] mapping = line.split("=");
+				config.put(mapping[0], mapping[1]);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return config;
+	}
+
+	public static SimpleMatrix getWeights(String key) {
+		try {
+			String content = new String(Files.readAllBytes(Paths.get("model.json")));
+			//System.out.println(content);
+			JSONObject model = new JSONObject(content);
+			//System.out.println(model.toString());
+			JSONArray array;
+			if(key.equals("hiddenWeights"))
+				array = model.getJSONArray(key).getJSONArray(0);
+			else
+				array = model.getJSONArray(key);
+			System.out.println("****");
+			System.out.println(array);
+			SimpleMatrix matrix = new SimpleMatrix(array.length(), ((JSONArray) array.get(0)).length());
+			for (int i = 0; i < array.length(); i++) {
+				JSONArray row = (JSONArray) array.get(i);
+				for (int j = 0; j < row.length(); j++) {
+					matrix.set(i, j, Double.parseDouble(row.get(j).toString()));
+				}
+			}
+			MatrixUtils.printMatrix(matrix);
+			return matrix;
+		} catch(Exception e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	public static void updateConfig(Config config) {
+		try(BufferedWriter bw = new BufferedWriter((new FileWriter(new File("config.conf"))))) {
+			for(String key : config.getMap().keySet()) {
+				bw.write(key + "=" + config.get(key) + "\n");
+			}
+		} catch(Exception e) {
+			e.printStackTrace();
+			return;
+		}
+	}
+
 }
